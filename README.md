@@ -5,6 +5,7 @@ This Repo contains all of the required software and hardware to create an Open-S
 printFiles contains all of the STL files that are required to be 3D printed for the full robot arm. All prints are required to be 30% infill PLA.
 BOM contains all of the parts required to be purchased to complete the robot arm.
 buildGuide contains a guide to the assembly of the arm.
+schem contains an Altium Designer Schematic file defining the electrical connections for the full system.
 
 # Software
 
