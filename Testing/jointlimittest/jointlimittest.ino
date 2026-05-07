@@ -10,29 +10,28 @@ const bool stepSequence[8][4] = {
   {0, 1, 0, 0}, {0, 1, 0, 1}, {0, 0, 0, 1}, {1, 0, 0, 1}
 };
 
-// --- TIMING & ACCELERATION CONSTANTS ---
-// Softened to prevent losing steps or overshooting
-const unsigned long MIN_DELAY_MICROS = 15000;  // Top speed (slower = more torque)
-const unsigned long MAX_DELAY_MICROS = 60000; // Starting/Stopping speed (smooth ramp)
-const long MAX_ACCEL_STEPS = 400;             // Longer, smoother ramp-up profile
+g
+const unsigned long MIN_DELAY_MICROS = 15000;  
+const unsigned long MAX_DELAY_MICROS = 60000; 
+const long MAX_ACCEL_STEPS = 400;             
 
-// --- POWER LEVELS (0 to 4095) ---
-const int MOVE_POWER = 4000; // ~97% power for moving
-const int HOLD_POWER = 1228; // ~30% power for holding position (FIXED: was 0)
 
-// --- UPGRADED MOTOR STRUCTURE ---
+const int MOVE_POWER = 4000; 
+const int HOLD_POWER = 1228;
+
+
 struct StepperMotor {
   String name;
   uint8_t driverIndex;
   uint8_t baseChannel;
   float gearRatio;
-  float stepAngle; // Allows different base resolutions (e.g. 0.9 vs 0.225)
+  float stepAngle; 
   
   long currentPositionHalfSteps;
   long targetPositionHalfSteps; 
-  unsigned long totalStepsMoved; // <-- NEW: Odometer to track lifetime steps
+  unsigned long totalStepsMoved; 
   
-  // VARIABLES FOR ACCELERATION
+
   long startPositionHalfSteps; 
   long accelSteps;             
   
@@ -43,7 +42,6 @@ struct StepperMotor {
   bool isMoving;
 };
 
-// --- MOTOR CONFIGURATIONS ---
 StepperMotor motors[7] = {
   // name, drv, chan, gear, stepAngle, currPos, targPos, totalSteps, startPos, accelStp, phase, lastMicros, currMicros, moving
   {"J1", 0, 0,  10.0, 0.225, 0, 0, 0, 0, 0, 0, 0, 0, false}, // 4x smaller step size
@@ -60,8 +58,7 @@ InputState currentState = WAITING_FOR_MOTOR;
 int selectedMotorIndex = -1; 
 
 void setup() {
-  // Increased baud rate to prevent Serial printing from blocking motor timing
-  Serial.begin(115200);
+ 
   Serial.setTimeout(50); 
   
   Serial.println("--- 7-Axis Stepper Control (Accel, Microstep & Holding Fixes) ---");
@@ -113,7 +110,7 @@ void releaseOtherMotors(StepperMotor &activeMotor) {
   }
 }
 
-// --- TARGET SETTER WITH ACCELERATION PREP ---
+
 void setTargetAngle(StepperMotor &motor, float targetAngle) {
   float baseHalfSteps = targetAngle / motor.stepAngle;
   long newTarget = round(baseHalfSteps * motor.gearRatio);
@@ -122,17 +119,17 @@ void setTargetAngle(StepperMotor &motor, float targetAngle) {
     
     releaseOtherMotors(motor);
     
-    // Prep variables for the ramping profile
+    /
     motor.startPositionHalfSteps = motor.currentPositionHalfSteps;
     motor.targetPositionHalfSteps = newTarget;
     
-    // Calculate how many steps to spend accelerating (1/3rd of the trip, capped at MAX_ACCEL_STEPS)
+    
     long totalSteps = abs(motor.targetPositionHalfSteps - motor.startPositionHalfSteps);
     motor.accelSteps = totalSteps / 3; 
     if (motor.accelSteps > MAX_ACCEL_STEPS) motor.accelSteps = MAX_ACCEL_STEPS;
     
     motor.isMoving = true;
-    motor.currentDelayMicros = MAX_DELAY_MICROS; // Start slow
+    motor.currentDelayMicros = MAX_DELAY_MICROS; 
     motor.lastStepTimeMicros = micros();
     
     stepMotor(motor, 0); 
@@ -145,7 +142,7 @@ void setTargetAngle(StepperMotor &motor, float targetAngle) {
   }
 }
 
-// --- BACKGROUND MOVEMENT ENGINE WITH RAMPING ---
+
 void updateAllMotors() {
   unsigned long currentMicros = micros();
 
@@ -153,32 +150,32 @@ void updateAllMotors() {
     long stepsRemaining = motors[i].targetPositionHalfSteps - motors[i].currentPositionHalfSteps;
     
     if (stepsRemaining != 0) {
-      // Check timing using the dynamic currentDelayMicros
+      
       if (currentMicros - motors[i].lastStepTimeMicros >= motors[i].currentDelayMicros) {
         
         int dir = (stepsRemaining > 0) ? 1 : -1;
         stepMotor(motors[i], dir);
         
         motors[i].currentPositionHalfSteps += dir;
-        motors[i].totalStepsMoved++; // <-- NEW: Increment total steps moved for this motor
+        motors[i].totalStepsMoved++; // 
         motors[i].lastStepTimeMicros = currentMicros; 
         
-        // --- CALCULATE DYNAMIC SPEED (RAMPING) ---
+        /
         long stepsMoved = abs(motors[i].currentPositionHalfSteps - motors[i].startPositionHalfSteps);
         long absRemaining = abs(motors[i].targetPositionHalfSteps - motors[i].currentPositionHalfSteps);
         
         if (stepsMoved < motors[i].accelSteps) {
-          // Speeding up (delay is shrinking)
+          
           float progress = (float)stepsMoved / motors[i].accelSteps;
           motors[i].currentDelayMicros = MAX_DELAY_MICROS - (progress * (MAX_DELAY_MICROS - MIN_DELAY_MICROS));
         } 
         else if (absRemaining < motors[i].accelSteps) {
-          // Slowing down (delay is growing)
+          
           float progress = (float)absRemaining / motors[i].accelSteps;
           motors[i].currentDelayMicros = MAX_DELAY_MICROS - (progress * (MAX_DELAY_MICROS - MIN_DELAY_MICROS));
         } 
         else {
-          // Cruising at top speed
+          
           motors[i].currentDelayMicros = MIN_DELAY_MICROS;
         }
       }
@@ -186,15 +183,15 @@ void updateAllMotors() {
     else if (motors[i].isMoving) {
       motors[i].isMoving = false; 
       
-      // Send a zero-step update. Since isMoving is now false, 
-      // setLogicState will instantly drop the active coils to HOLD_POWER (1228).
+     
+      
       stepMotor(motors[i], 0); 
       releaseOtherMotors(motors[i]);
       
       Serial.print("\n>>> "); Serial.print(motors[i].name);
       Serial.println(" arrived and holding position.");
       
-      // <-- NEW: Display the total steps moved
+    
       Serial.print(">>> Total steps moved so far (Odometer): ");
       Serial.println(motors[i].totalStepsMoved);
       

@@ -11,7 +11,7 @@ class AggressiveDynamicFilter:
     def __init__(self):
         rospy.init_node('aggressive_dynamic_filter', anonymous=True)
 
-        # --- 1. Setup Pinocchio Model ---
+ 
         package_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         urdf_path = os.path.join(package_root, "urdf", "static.urdf")
         
@@ -23,14 +23,13 @@ class AggressiveDynamicFilter:
             rospy.logerr(f"Failed to load URDF: {e}")
             rospy.signal_shutdown("URDF Load Failure")
 
-        # --- 2. System Parameters ---
+
         self.torque_limits = np.array([11.34, 34.02, 11.34, 34.02, 0.47, 1.41, 0.47])
         
-        # Engagement threshold: SF=4 (25% of absolute limits)
+       
         self.threshold = 0.33
         
-        # AGGRESSION COEFFICIENT (Higher = Harder braking once past threshold)
-        # Try values between 5.0 and 20.0
+      
         self.k_aggression = 15.0 
         
         self.last_time = rospy.Time.now()
@@ -71,10 +70,9 @@ class AggressiveDynamicFilter:
         safe_msg.name = msg.name
         safe_msg.position = msg.position
 
-        # --- Aggressive Asymptotic Filtering ---
+      
         if max_ratio > self.threshold:
-            # We squash the demand. The higher self.k_aggression is, 
-            # the closer the result stays to self.threshold.
+       
             target_ratio = self.threshold + (1.0 - self.threshold) * \
                            (1.0 - np.exp(-self.k_aggression * (max_ratio - self.threshold)))
             

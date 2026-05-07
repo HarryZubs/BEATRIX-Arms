@@ -5,23 +5,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-# --- Global variables ---
-latest_real = None       # actual joint angles
-latest_desired = None    # commanded/demand joint angles
-replan_requested = False # Flag triggered by high error
 
-# --- Tuning Parameters ---
-# Maximum allowable error (in radians) before triggering a replan.
-# 0.2 rad is roughly 11.5 degrees. Tune this to fit your system's baseline lag.
+latest_real = None       
+latest_desired = None    
+replan_requested = False 
+
+
 ERROR_THRESHOLD = 0.2  
 
-# Data logging for the graph
+
 history_t = []
 history_pos = []
 history_vel = []
 history_acc = []
 
-# --- Callbacks ---
+
 def real_callback(msg):
     global latest_real
     if len(msg.position) >= 7:
@@ -38,12 +36,11 @@ def error_callback(msg):
         error_arr = np.array(msg.position[:7])
         max_err = np.max(np.abs(error_arr))
         
-        # If any joint's error exceeds the threshold, demand a replan
+        
         if max_err > ERROR_THRESHOLD and not replan_requested:
             rospy.logwarn(f"Error Threshold Exceeded! Max Error: {max_err:.3f} rad. Requesting Replan...")
             replan_requested = True
 
-# --- Cubic polynomial helpers ---
 def cubic_coefficients(q0, qf, v0, vf, T):
     a0 = q0
     a1 = v0
@@ -58,7 +55,6 @@ def cubic_eval(coeffs, t):
     acc = 2*a2 + 6*a3*t
     return pos, vel, acc
 
-# --- Graph Generation Hook ---
 def plot_trajectory():
     rospy.loginfo("Generating trajectory plots...")
     if not history_t:
@@ -88,14 +84,14 @@ def plot_trajectory():
     plt.tight_layout(rect=[0, 0, 1, 0.97])
     plt.show()
 
-# --- Main path planning node ---
+
 def main():
     global latest_real, latest_desired, replan_requested
     rospy.init_node("dynamic_cubic_path_planner")
 
     rospy.on_shutdown(plot_trajectory)
 
-    # Subscribers & Publishers
+ 
     rospy.Subscriber("/joint_states_real", JointState, real_callback, queue_size=1)
     rospy.Subscriber("/joint_states", JointState, desired_callback, queue_size=1)
     rospy.Subscriber("/tracking_error", JointState, error_callback, queue_size=1) # NEW SUBSCRIBER
@@ -123,7 +119,7 @@ def main():
                 rate.sleep()
                 continue
 
-        # --- 1. Determine if we need to calculate a new trajectory ---
+       
         target_changed = prev_desired is None or not np.allclose(latest_desired, prev_desired, atol=1e-5)
         
         if target_changed or replan_requested:
@@ -131,14 +127,14 @@ def main():
             if replan_requested:
                 rospy.logwarn("Executing Recovery: Replanning from CURRENT REAL position.")
                 q0 = latest_real.copy()
-                # Default to zero velocity to ensure a smooth recovery curve from the physical position
+                
                 v0 = np.zeros(7) 
             elif current_planned_pos is None:
-                # Very first move of the node
+                
                 q0 = latest_real.copy()
                 v0 = np.zeros(7)
             else:
-                # Normal mid-move target update (smoothly branch off current plan)
+               
                 q0 = current_planned_pos.copy()
                 v0 = current_planned_vel.copy() 
 
@@ -149,14 +145,14 @@ def main():
             t0 = rospy.get_time()
             prev_desired = latest_desired.copy()
             
-            # Reset the flag so we don't infinitely replan
+           
             replan_requested = False
 
         if coeffs is None:
             rate.sleep()
             continue
 
-        # --- 2. Evaluate Trajectory ---
+     
         t_now = rospy.get_time()
         t_elapsed = t_now - t0
         t_clamped = min(t_elapsed, duration)

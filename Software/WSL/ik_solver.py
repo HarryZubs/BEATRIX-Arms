@@ -2,10 +2,10 @@
 import rospy
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PoseStamped
-from std_msgs.msg import Float64  # <-- Changed to Float64
+from std_msgs.msg import Float64  
 import numpy as np
 
-# ---------------- Robot DH table ----------------
+
 dh = np.array([
     [np.pi/2, -0.22, 0, -np.pi/2],
     [-np.pi, 0, 0, -np.pi/2],
@@ -18,15 +18,15 @@ dh = np.array([
 joint_names = ["joint1","joint2","joint3","joint4","joint5","joint6","joint7"]
 num_joints = len(dh)
 
-# ---------------- Joint limits in degrees (converted to radians) ----------------
+
 deg2rad = np.pi / 180.0
 joint_min_deg = np.array([-90, -45, -90, 0, -90, -30, -30])
 joint_max_deg = np.array([ 90,  90,  90, 130,  90,  30,  30])
 joint_min = joint_min_deg * deg2rad
 joint_max = joint_max_deg * deg2rad
-q_center = (joint_min + joint_max)/2  # center for limit bias
+q_center = (joint_min + joint_max)/2  
 
-# ---------------- FK ----------------
+
 def fk(thetas):
     T = np.eye(4)
     for i, (theta_offset,d,a,alpha) in enumerate(dh):
@@ -42,7 +42,7 @@ def fk(thetas):
         T = T @ Ti
     return T
 
-# ---------------- Numerical Jacobian for position ----------------
+
 def jacobian(thetas, delta=1e-6):
     J = np.zeros((3,num_joints))
     f0 = fk(thetas)[:3,3]
@@ -53,7 +53,7 @@ def jacobian(thetas, delta=1e-6):
         J[:,i] = (f1 - f0)/delta
     return J
 
-# ---------------- Orientation error ----------------
+
 def orientation_error(R_current, R_desired):
     R_err = R_desired @ R_current.T
     angle = np.arccos(np.clip((np.trace(R_err)-1)/2, -1.0, 1.0))
@@ -61,7 +61,7 @@ def orientation_error(R_current, R_desired):
         return np.zeros(3)
     
     s = np.sin(angle)
-    # Singularity protection: if angle is near pi, sin(angle) approaches 0
+    
     if abs(s) < 1e-5: 
         s = 1e-5 if s >= 0 else -1e-5
         
@@ -70,7 +70,7 @@ def orientation_error(R_current, R_desired):
     rz = (R_err[1,0] - R_err[0,1])/(2*s)
     return angle * np.array([rx, ry, rz])
 
-# ---------------- Quaternion to rotation matrix ----------------
+
 def quat_to_rotmat(qx,qy,qz,qw):
     R = np.array([
         [1-2*(qy**2+qz**2), 2*(qx*qy - qz*qw), 2*(qx*qz + qy*qw)],
@@ -79,7 +79,7 @@ def quat_to_rotmat(qx,qy,qz,qw):
     ])
     return R
 
-# ---------------- IK solver with joint limits & multiple seeds ----------------
+
 def ik_solver(target_pose, max_iter=200, tol=1e-4, alpha=0.15):
     target_pos = np.array([target_pose.position.x,
                            target_pose.position.y,
@@ -115,9 +115,9 @@ def ik_solver(target_pose, max_iter=200, tol=1e-4, alpha=0.15):
             
             e = np.concatenate((e_pos * weight_pos, e_ori * weight_ori))
             
-            # Early exit if we hit tolerance!
+           
             if np.linalg.norm(e_pos) < tol and np.linalg.norm(e_ori) < tol:
-                # Return tuple of (thetas, error) so callback can use both
+               
                 return thetas, np.linalg.norm(e_pos)
             
             J_pos = jacobian(thetas)
@@ -152,23 +152,23 @@ def ik_solver(target_pose, max_iter=200, tol=1e-4, alpha=0.15):
             best_pos_error = final_pos_error
             best_thetas = thetas.copy()
             
-    # <-- NEW: We now return BOTH the joint states and the final calculated error 
+    
     return best_thetas, best_pos_error
 
-# ---------------- ROS callback ----------------
+
 def pose_callback(msg):
-    # Unpack the tuple returned by the updated ik_solver
+    
     thetas, pos_error = ik_solver(msg.pose)
     
     if pos_error < 0.1: 
-        # Pose is reachable: Publish Joint States
+        
         js = JointState()
         js.header.stamp = rospy.Time.now()
         js.name = joint_names
         js.position = thetas.tolist()
         pub.publish(js)
     else:
-        # Pose is unreachable: Publish the position error
+      
         rospy.logwarn(f"IK Failed! Unreachable pose. Pos Error: {pos_error:.4f}m")
         error_pub.publish(pos_error)
 
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     
     pub = rospy.Publisher("/joint_states", JointState, queue_size=10)
     
-    # <-- NEW: Publisher for the positional error float
+  
     error_pub = rospy.Publisher("/unreachable_error", Float64, queue_size=10)
     
     rospy.Subscriber("/target_pose", PoseStamped, pose_callback)

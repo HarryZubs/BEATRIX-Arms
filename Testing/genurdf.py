@@ -10,7 +10,7 @@ def generate_dh_urdf(robot_name, dh_table, joint_limits, output_path):
     """
     urdf = f'<?xml version="1.0"?>\n<robot name="{robot_name}">\n'
     
-    # Create the base link
+   
     urdf += '  <link name="base_link"/>\n'
     parent_link = "base_link"
     
@@ -21,10 +21,10 @@ def generate_dh_urdf(robot_name, dh_table, joint_limits, output_path):
         
         dummy_link = f"dummy_link_{joint_num}"
         child_link = f"link_{joint_num}"
-        joint_name = f"joint{joint_num}" # Matches the naming in your simulation script
+        joint_name = f"joint{joint_num}"                         
         fixed_joint = f"fixed_{joint_num}"
         
-        # 1. Revolute Joint: Handles 'd' (translation along Z) and 'theta' (rotation around Z)
+        
         urdf += f'''
   <joint name="{joint_name}" type="revolute">
     <parent link="{parent_link}"/>
@@ -36,7 +36,7 @@ def generate_dh_urdf(robot_name, dh_table, joint_limits, output_path):
   
   <link name="{dummy_link}"/>
 '''
-        # 2. Fixed Joint: Handles 'a' (translation along X) and 'alpha' (rotation around X)
+        
         urdf += f'''
   <joint name="{fixed_joint}" type="fixed">
     <parent link="{dummy_link}"/>
@@ -50,27 +50,17 @@ def generate_dh_urdf(robot_name, dh_table, joint_limits, output_path):
         
     urdf += '</robot>\n'
     
-    # Write to file
+
     with open(output_path, 'w') as f:
         f.write(urdf)
     print(f"Generated URDF for {robot_name} at: {output_path}")
 
 
-# --- Configuration ---
+
 output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "dummy_path"))
 os.makedirs(output_dir, exist_ok=True)
 
-# Standard DH Representation:
-# a (meters): distance along X_i from Z_{i-1} to Z_i
-# alpha (rad): angle around X_i from Z_{i-1} to Z_i
-# d (meters): distance along Z_{i-1} from X_{i-1} to X_i
-# theta_offset (rad): constant offset angle around Z_{i-1} 
 
-# Note: Math.pi can be used for exact radians (e.g., math.pi/2)
-
-# --- DUMMY DATA FOR 4 ROBOTS ---
-# Replace the tables below with your actual DH parameters and limits.
-# Ensure both tables for a robot have the same number of rows (DOFs).
 
 robots = [
     {
@@ -161,7 +151,7 @@ robots = [
     }
 ]
 
-# --- Execution ---
+
 if __name__ == "__main__":
     print(f"Generating URDF files in: {output_dir}\n" + "-"*40)
     for robot in robots:

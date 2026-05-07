@@ -7,24 +7,24 @@ import tkinter as tk
 import serial 
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
 
-# --- Global configuration ---
+# Socket setup
 HOST = "172.28.203.158"
 PORT = 5000
 
-# Arduino Configuration
-SERIAL_PORT = "COM3" # Change this to your Arduino's port
+# Arduino setup
+SERIAL_PORT = "COM3" 
 BAUD_RATE = 115200
 
-# --- State tracking & Threading ---
+
 last_received_positions = []
 recv_buffer = ""
 command_queue = queue.Queue()
 trajectory_queue = queue.Queue() 
 
-# <-- NEW: Track which system the current move is meant for
+
 current_move_target = "SIM" 
 
-# Globals for network objects and connection status
+
 tcp = None
 sim = None
 arduino = None
@@ -34,7 +34,7 @@ sim_connected = False
 arduino_connected = False
 latest_ik_error = None 
 
-# ------------------ Helpers ------------------
+
 def send_pos(pos_list):
     if not pos_list or sim is None: return
     for i, val in enumerate(pos_list, start=1):
@@ -52,7 +52,7 @@ def read_accPos():
         acc.append(val)
     return acc
 
-# ------------------ Arduino Serial Loop (10Hz Streamer) ------------------
+# Arduno Thread
 def serial_loop():
     global arduino, arduino_connected
     
@@ -93,7 +93,7 @@ def serial_loop():
                 next_step_time = time.time()
                 time.sleep(0.01)
 
-# ------------------ Network Loop (Background Thread) ------------------
+# ROS Comms Thread
 def network_loop():
     global tcp, sim, last_received_positions, recv_buffer
     global ros_connected, sim_connected, latest_ik_error, current_move_target
@@ -125,7 +125,7 @@ def network_loop():
 
     try:
         while True:
-            # --- SEND GUI Commands ---
+       
             while not command_queue.empty():
                 # <-- MODIFIED: We now receive both the target flag and the command string
                 target_val, cmd_str = command_queue.get()
@@ -138,7 +138,6 @@ def network_loop():
                     ros_connected = False
                     return
 
-            # --- RECEIVE TCP Data ---
             try:
                 data = tcp.recv(4096).decode()
                 if data:
@@ -196,7 +195,7 @@ def network_loop():
         if tcp: tcp.close()
         ros_connected = False
 
-# ------------------ GUI (Main Thread) ------------------
+# GUI Thread
 def start_gui():
     root = tk.Tk()
     root.title("Robot Cartesian Controller")
@@ -270,7 +269,7 @@ def start_gui():
             
             cmd_str = f"CMD,{target_var.get()},{mode_var.get()},{x},{y},{z},{rx},{ry},{rz}\n"
             
-            # <-- MODIFIED: Send a tuple containing the target flag so the network thread knows what we selected
+           
             command_queue.put((target_var.get(), cmd_str))
             
             feedback_msg.set(f" Sending command to {target_var.get()}...")

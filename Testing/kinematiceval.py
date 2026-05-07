@@ -7,9 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import os
 
-# --- 1. Configuration & Setup ---
 
-# Define your 4 URDF files and their corresponding end-effector frame names.
 robots_config = [
     {"urdf": "dummy_path/human.urdf", "ee_frame": "joint7", "name": "Human"},
     {"urdf": "dummy_path/7dof.urdf", "ee_frame": "joint7", "name": "7DoF"},
@@ -17,15 +15,15 @@ robots_config = [
     {"urdf": "dummy_path/5dof.urdf", "ee_frame": "joint5", "name": "5DoF"}
 ]
 
-num_samples = 50000  # Number of random poses to test per robot
+num_samples = 50000  
 
-# Voxel sizes to test (in cm). range(1, 20, 2) gives: 1, 3, 5, 7, 9, 11, 13, 15, 17, 19
+
 voxel_sizes_cm = list(range(1, 20, 2))
 
-# Dictionary to store the generated point clouds so we only simulate once
+
 point_clouds = {}
 
-# --- 2. Simulation Loop (Generate Point Clouds) ---
+
 print("Generating point clouds. This may take a moment...")
 
 for config in robots_config:
@@ -49,7 +47,7 @@ for config in robots_config:
 
     pts_kinematic = []
 
-    # Monte Carlo simulation
+
     for _ in range(num_samples):
         q = pin.randomConfiguration(model)
         pin.forwardKinematics(model, data, q)
@@ -62,7 +60,7 @@ for config in robots_config:
     print(f"  -> {robot_name}: Generated {len(pts_kinematic)} reachable points.")
 
 
-# --- 3. Visualization 1: 3D Reachability Subplots ---
+
 print("\nGenerating 3D workspace plots...")
 fig1 = plt.figure(figsize=(16, 12))
 fig1.canvas.manager.set_window_title('Kinematic Workspaces')
@@ -77,7 +75,7 @@ for i, (robot_name, pts) in enumerate(point_clouds.items()):
     ax.set_zlabel('Z (meters)')
     ax.set_title(f'Kinematic Workspace: {robot_name}')
 
-    # Equalize axis scaling for a proportional 3D view
+
     max_range = np.array([pts[:,0].max()-pts[:,0].min(), 
                           pts[:,1].max()-pts[:,1].min(), 
                           pts[:,2].max()-pts[:,2].min()]).max() / 2.0
@@ -91,23 +89,22 @@ for i, (robot_name, pts) in enumerate(point_clouds.items()):
 fig1.tight_layout()
 
 
-# --- 4. Voxelization & Analysis Loop ---
 print("\nCalculating voxel overlaps across varying resolutions...")
 
-# We assume the first robot loaded successfully is our baseline (Human)
+
 baseline_name = list(point_clouds.keys())[0]
 baseline_pts = point_clouds[baseline_name]
 
-# Prepare a dictionary to store coverage results for the other robots
+
 overlap_results = {name: [] for name in point_clouds.keys() if name != baseline_name}
 
 for vs_cm in voxel_sizes_cm:
-    vs_m = vs_cm / 100.0  # Convert cm to meters for the math
+    vs_m = vs_cm / 100.0  
     
-    # Discretize the baseline (Human) point cloud at this voxel size
+   
     baseline_voxels = set(tuple(v) for v in np.floor(baseline_pts / vs_m).astype(int))
     
-    # Compare against every other robot
+   
     for robot_name, pts in point_clouds.items():
         if robot_name == baseline_name:
             continue
@@ -123,12 +120,12 @@ for vs_cm in voxel_sizes_cm:
         overlap_results[robot_name].append(coverage)
 
 
-# --- 5. Visualization 2: 2D Line Graph ---
+
 print("Generating resolution line graph...")
 fig2 = plt.figure(figsize=(10, 6))
 fig2.canvas.manager.set_window_title('Workspace Overlap vs Resolution')
 
-# Plot a line for each robot being compared
+
 markers = ['o', 's', '^', 'D', 'v']
 for i, (robot_name, coverages) in enumerate(overlap_results.items()):
     plt.plot(voxel_sizes_cm, coverages, marker=markers[i % len(markers)], 
@@ -144,5 +141,5 @@ plt.legend(fontsize=12)
 
 fig2.tight_layout()
 
-# Show both figures
+
 plt.show()

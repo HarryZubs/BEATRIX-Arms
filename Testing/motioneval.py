@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 import os
 
-# --- 1. Configuration ---
+
 robots_config = [
     {"urdf": "dummy_path/human.urdf", "ee_frame": "joint7", "name": "Human"},
     {"urdf": "dummy_path/7dof.urdf", "ee_frame": "joint7", "name": "7DoF"},
@@ -20,12 +20,11 @@ max_ik_steps = 300
 step_size = 0.05
 tolerance = 0.05 # 1 cm
 
-# Define a bounding box in front of the robot to generate random targets (in meters)
-x_range = [0.2, 0.5]
+#
 y_range = [-0.3, 0.3]
 z_range = [0.1, 0.6]
 
-# --- 2. Helper Functions ---
+
 def run_ik(model, data, ee_id, q_init, target_pos):
     """Runs greedy Jacobian IK and returns the trajectory and success status."""
     q = q_init.copy()
@@ -54,17 +53,16 @@ def normalize_trajectory(traj, num_points=100):
     if len(traj) < 2:
         return np.tile(traj[0], (num_points, 1))
     
-    # Calculate cumulative distance along the path
-    distances = np.cumsum(np.insert(np.linalg.norm(np.diff(traj, axis=0), axis=1), 0, 0))
-    distances /= distances[-1] # Normalize to 0.0 - 1.0
     
-    # Create interpolation functions for X, Y, Z
+    distances = np.cumsum(np.insert(np.linalg.norm(np.diff(traj, axis=0), axis=1), 0, 0))
+    distances /= distances[-1] 
+    
+   
     interpolator = interp1d(distances, traj, axis=0, kind='linear')
     
-    # Sample at 100 evenly spaced intervals
+    
     return interpolator(np.linspace(0, 1, num_points))
 
-# --- 3. Setup Models ---
 models = {}
 for config in robots_config:
     try:
@@ -79,7 +77,7 @@ for config in robots_config:
 human_name = robots_config[0]["name"]
 errors_accumulated = {name: [] for name in models.keys() if name != human_name}
 
-# --- 4. Main Simulation Loop ---
+
 print(f"Starting analysis. Looking for {num_valid_paths_needed} valid paths shared by all arms...")
 valid_paths_found = 0
 attempts = 0
@@ -87,25 +85,25 @@ attempts = 0
 while valid_paths_found < num_valid_paths_needed:
     attempts += 1
     
-    # Generate random start and end coordinates within the bounding box
+    
     start_pos = np.array([np.random.uniform(*x_range), np.random.uniform(*y_range), np.random.uniform(*z_range)])
     end_pos = np.array([np.random.uniform(*x_range), np.random.uniform(*y_range), np.random.uniform(*z_range)])
     
     all_successful = True
     trajectories = {}
     
-    # Test all robots on this start->end combo
+   
     for name, m_dict in models.items():
         q_neutral = pin.neutral(m_dict["model"])
         
-        # Phase 1: Move from neutral to the Start Position
+        
         _, q_start, start_success = run_ik(m_dict["model"], m_dict["data"], m_dict["ee_id"], q_neutral, start_pos)
         
         if not start_success:
             all_successful = False
             break
             
-        # Phase 2: Move from Start Position to End Position
+      
         traj, _, end_success = run_ik(m_dict["model"], m_dict["data"], m_dict["ee_id"], q_start, end_pos)
         
         if not end_success:
@@ -114,25 +112,25 @@ while valid_paths_found < num_valid_paths_needed:
             
         trajectories[name] = traj
 
-    # If any robot failed, discard this iteration and roll new coordinates
+   
     if not all_successful:
         continue
         
     valid_paths_found += 1
     print(f"\rProgress: {valid_paths_found}/{num_valid_paths_needed} paths calculated...", end="")
     
-    # Normalize trajectories and calculate errors against the Human
+   
     human_traj = normalize_trajectory(trajectories[human_name])
     
     for name in errors_accumulated.keys():
         robot_traj = normalize_trajectory(trajectories[name])
-        # Calculate mean Euclidean distance between points along the path
+       
         path_error = np.mean(np.linalg.norm(robot_traj - human_traj, axis=1))
         errors_accumulated[name].append(path_error)
 
 print(f"\nAnalysis complete! Took {attempts} attempts to find {num_valid_paths_needed} valid shared paths.")
 
-# --- 5. Output Results ---
+
 print("\n" + "="*45)
 print(f"AVERAGE TRAJECTORY ERROR VS. HUMAN PATH")
 print(f"(Lower is better/more human-like)")

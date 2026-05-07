@@ -7,16 +7,16 @@ from std_msgs.msg import Float64
 from tf.transformations import quaternion_from_euler
 import time
 
-# --- Global variables ---
-latest_positions = [0.0] * 7  # current joint states from ROS
-recv_buffer = ""              # TCP receive buffer
+
+latest_positions = [0.0] * 7  
+recv_buffer = ""             
 latest_unreachable_error = None 
 
-# <-- NEW: Global tracking variables
-latest_target_mode = "SIM"    # Tracks the most recently received target (SIM or REAL)
-current_cartesian_pose = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0] # Tracks [X, Y, Z, Rx, Ry, Rz]
 
-# --- ROS callbacks ---
+latest_target_mode = "SIM"     
+current_cartesian_pose = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0] 
+
+
 def joint_state_callback(msg):
     global latest_positions
     latest_positions = list(msg.position)[:7]  
@@ -25,7 +25,7 @@ def unreachable_error_callback(msg):
     global latest_unreachable_error
     latest_unreachable_error = msg.data
 
-# --- Setup ROS node ---
+
 rospy.init_node("tcp_joint_server", anonymous=True)
 
 rospy.Subscriber("/planned_joint_states", JointState, joint_state_callback, queue_size=1)
@@ -34,7 +34,7 @@ rospy.Subscriber("/unreachable_error", Float64, unreachable_error_callback, queu
 real_pub = rospy.Publisher("/joint_states_real", JointState, queue_size=1)
 target_pub = rospy.Publisher("/target_pose", PoseStamped, queue_size=1)
 
-# --- TCP server setup ---
+
 HOST = "0.0.0.0"
 PORT = 5000
 
@@ -56,12 +56,12 @@ def wait_for_connection():
 
 conn = wait_for_connection()
 
-# --- Main loop ---
+
 try:
-    rate = rospy.Rate(50)  # 50 Hz loop
+    rate = rospy.Rate(50) 
 
     while not rospy.is_shutdown():
-        # --- SEND UNREACHABLE ERROR ---
+      
         if latest_unreachable_error is not None:
             err_msg = f"ERR,{latest_unreachable_error:.4f}\n"
             try:
@@ -75,7 +75,7 @@ try:
                 conn = wait_for_connection()
                 continue
 
-        # --- SEND latest positions continuously ---
+       
         msg_out = ','.join(f"{p:.4f}" for p in latest_positions) + '\n'
         try:
             conn.sendall(msg_out.encode())
@@ -87,7 +87,7 @@ try:
             conn = wait_for_connection()
             continue
 
-        # --- RECEIVE any incoming data (non-blocking) ---
+       
         try:
             data = conn.recv(4096).decode()
             if data:
@@ -103,7 +103,7 @@ try:
                         if len(parts) > 0:
                             header = parts[0]
 
-                            # --- HANDLE FEEDBACK (FBK) ---
+                           
                             if header == "FBK" and len(parts) == 9:
                                 try:
                                     target_flag = parts[1] 
@@ -118,26 +118,26 @@ try:
                                 except ValueError:
                                     pass
 
-                            # --- HANDLE COMMANDS (CMD) ---
+                          
                             elif header == "CMD" and len(parts) == 9:
                                 try:
-                                    target_flag = parts[1] # "SIM" or "REAL"
+                                    target_flag = parts[1] 
                                     
-                                    # <-- NEW: Store the globally active target
+                                  
                                     latest_target_mode = target_flag 
                                     
-                                    mode_flag = parts[2]   # "ABS" or "REL"
+                                    mode_flag = parts[2]  
                                     coords = [float(p) for p in parts[3:]]
                                     
-                                    # <-- NEW: Handle ABS vs REL math
+                                  
                                     if mode_flag == "ABS":
-                                        # Overwrite current pose
+                                     
                                         current_cartesian_pose = coords
                                     elif mode_flag == "REL":
-                                        # Add to current pose (X+X, Y+Y, Z+Z, Rx+Rx, Ry+Ry, Rz+Rz)
+                                        
                                         current_cartesian_pose = [curr + delta for curr, delta in zip(current_cartesian_pose, coords)]
                                     
-                                    # Build the pose message based on the calculated current_cartesian_pose
+                                    
                                     pose_msg = PoseStamped()
                                     pose_msg.header.stamp = rospy.Time.now()
                                     pose_msg.header.frame_id = f"{target_flag}_{mode_flag}"

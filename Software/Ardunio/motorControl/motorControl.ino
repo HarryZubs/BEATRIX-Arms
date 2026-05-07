@@ -10,15 +10,15 @@ const bool stepSequence[8][4] = {
   {0, 1, 0, 0}, {0, 1, 0, 1}, {0, 0, 0, 1}, {1, 0, 0, 1}
 };
 
-// --- TIMING CONSTANTS ---
-const unsigned long TIMESTEP_MICROS = 100000; // 100ms timestep window
-const unsigned long MIN_SAFE_DELAY_MICROS = 2000; // Physical speed limit to prevent stalling
+// Defualt time values
+const unsigned long TIMESTEP_MICROS = 100000;
+const unsigned long MIN_SAFE_DELAY_MICROS = 2000; 
 
-// --- POWER LEVELS (0 to 4095) ---
-const int MOVE_POWER = 4000; // ~97% power for moving
-const int HOLD_POWER = 1228; // ~30% power for holding position
+// PWM values
+const int MOVE_POWER = 4000;
+const int HOLD_POWER = 1228; /
 
-// --- UPGRADED MOTOR STRUCTURE ---
+// Motor Structure
 struct StepperMotor {
   String name;
   uint8_t driverIndex;
@@ -36,7 +36,7 @@ struct StepperMotor {
   bool isMoving;
 };
 
-// --- MOTOR CONFIGURATIONS ---
+// motor setup
 StepperMotor motors[7] = {
   // name, drv, chan, gear, stepAngle, currPos, targPos, phase, lastMicros, delayMicros, moving
   {"J1", 0, 0,  10.0, 0.225, 0, 0, 0, 0, 0, false}, 
@@ -49,8 +49,9 @@ StepperMotor motors[7] = {
 };
 
 void setup() {
+
   Serial.begin(115200);
-  Serial.setTimeout(10); // Very fast timeout for rapid serial reading
+  Serial.setTimeout(10); 
   
   pwm1.begin();
   pwm1.setPWMFreq(1000); 
@@ -61,7 +62,7 @@ void setup() {
   
   for (int i = 0; i < 7; i++) motorOff(motors[i]);
 
-  Serial.println("System Ready. Send 7 comma-separated angles (e.g., 10,20.5,-5,0,90,45,0)");
+  Serial.println("System Ready");
 }
 
 void setLogicState(StepperMotor &motor, uint8_t channelOffset, bool isHigh) {
@@ -90,21 +91,21 @@ void motorOff(StepperMotor &motor) {
   setLogicState(motor, 2, false); setLogicState(motor, 3, false);
 }
 
-// --- NEW MULTI-AXIS TARGET PARSER & TIMING CALCULATOR ---
+
 void parseAndExecutePositions(String input) {
   float targetAngles[7];
   int commaIndex;
   
-  // Parse comma-separated string into float array
+ 
   for (int i = 0; i < 6; i++) {
     commaIndex = input.indexOf(',');
-    if (commaIndex == -1) return; // Malformed string
+    if (commaIndex == -1) return; 
     targetAngles[i] = input.substring(0, commaIndex).toFloat();
     input = input.substring(commaIndex + 1);
   }
-  targetAngles[6] = input.toFloat(); // Get the last value
+  targetAngles[6] = input.toFloat(); 
 
-  // Apply targets and calculate dynamic speeds
+ 
   unsigned long moveStartTime = micros();
   
   for (int i = 0; i < 7; i++) {
@@ -116,10 +117,10 @@ void parseAndExecutePositions(String input) {
       
       long stepsRequired = abs(motors[i].targetPositionHalfSteps - motors[i].currentPositionHalfSteps);
       
-      // Calculate delay to fit perfectly within the 100ms timestep
+      
       motors[i].currentDelayMicros = TIMESTEP_MICROS / stepsRequired;
       
-      // Safety limits - prevent the motor from trying to step faster than physically possible
+      
       if (motors[i].currentDelayMicros < MIN_SAFE_DELAY_MICROS) {
          motors[i].currentDelayMicros = MIN_SAFE_DELAY_MICROS;
       }
@@ -127,16 +128,16 @@ void parseAndExecutePositions(String input) {
       motors[i].isMoving = true;
       motors[i].lastStepTimeMicros = moveStartTime; 
       
-      stepMotor(motors[i], 0); // Energize coils at MOVE_POWER
+      stepMotor(motors[i], 0); 
     } else if (motors[i].isMoving) {
-      // If commanded to stay still, drop to hold power
+
       motors[i].isMoving = false;
       stepMotor(motors[i], 0); 
     }
   }
 }
 
-// --- CONSTANT VELOCITY BACKGROUND ENGINE ---
+
 void updateAllMotors() {
   unsigned long currentMicros = micros();
 
@@ -152,22 +153,21 @@ void updateAllMotors() {
           
           motors[i].currentPositionHalfSteps += dir;
           
-          // Add delay directly to last step time to prevent timing drift over the 100ms window
+          
           motors[i].lastStepTimeMicros += motors[i].currentDelayMicros; 
         }
       } 
       else {
-        // Motor has arrived exactly on time
+
         motors[i].isMoving = false; 
-        stepMotor(motors[i], 0); // Drop coils to HOLD_POWER (1228)
+        stepMotor(motors[i], 0); 
       }
     }
   }
 }
 
 void loop() {
-  updateAllMotors(); // Runs constantly to pulse the motors
-
+  updateAllMotors(); 
   // Check for incoming trajectories
   if (Serial.available() > 0) {
     String input = Serial.readStringUntil('\n');
