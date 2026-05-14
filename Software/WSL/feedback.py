@@ -71,7 +71,7 @@ class AdaptiveErrorPublisher:
             self.error_pub.publish(err_msg)
 
     def calculate_dynamic_lag(self, event):
-        """Runs at 10Hz to update the phase lag using a sliding window."""
+       
         if len(self.real_buffer) < 50 or len(self.safe_buffer) < 50:
             return
 
