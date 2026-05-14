@@ -127,7 +127,7 @@ def network_loop():
         while True:
        
             while not command_queue.empty():
-                # <-- MODIFIED: We now receive both the target flag and the command string
+              
                 target_val, cmd_str = command_queue.get()
                 current_move_target = target_val # Update the global state
                 
@@ -154,7 +154,7 @@ def network_loop():
                                 latest_ik_error = parts[1]
                                 
                             elif parts[0] == "TRAJ" and len(parts) == 8:
-                                # <-- MODIFIED: Only queue for Arduino if the last requested move was for the REAL robot
+                            
                                 if current_move_target == "REAL":
                                     try:
                                         waypoint = [float(p) for p in parts[1:8]]
@@ -163,7 +163,7 @@ def network_loop():
                                         pass 
 
                             elif len(parts) == 7:
-                                # This continues to update the Simulator exactly as it did before
+                               
                                 try:
                                     last_received_positions = [float(p) for p in parts]
                                 except ValueError:
